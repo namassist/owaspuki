@@ -1,0 +1,38 @@
+version: "3.9"
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: owasp_db
+    environment:
+      POSTGRES_DB: owasp
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d owasp"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: owasp_web
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/owasp?schema=public
+      - NEXTAUTH_SECRET=supersecret
+      - NEXTAUTH_URL=http://localhost:3000
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    command: >
+      sh -c "npx prisma migrate deploy && npm run start"
+
+volumes:
+  db-data:

@@ -1,0 +1,118 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  Pentester
+  Developer
+}
+
+model User {
+  id       String  @id @default(cuid())
+  email    String  @unique
+  name     String?
+  password String?
+  role     Role    @default(Developer)
+
+  findings           Finding[]
+  projects           Project[]
+  uploadedEvidences  Evidence[]   @relation("EvidenceUploadedBy")
+  projectDocs        ProjectDoc[] @relation("ProjectDocUploadedBy")
+
+  // ⬇️ BARU: relasi ke sesi login (token HttpOnly)
+  sessions           Session[]
+
+  createdAt DateTime @default(now())
+}
+
+model Project {
+  id          String      @id @default(cuid())
+  name        String
+  description String?
+  ownerId     String?
+  owner       User?       @relation(fields: [ownerId], references: [id])
+  findings    Finding[]
+  docs        ProjectDoc[]
+  createdAt   DateTime    @default(now())
+}
+
+model Finding {
+  id          String  @id @default(cuid())
+  title       String
+  description String?
+  owaspCat    String?
+  cvssVector  String?
+  cvssScore   Float   @default(0)
+  severity    String  @default("None")
+  status      String  @default("Open")
+
+  url    String?
+  method String   @default("POST")
+  impact String?
+  params String[] @default([])
+
+  reporterId String
+  reporter   User   @relation(fields: [reporterId], references: [id])
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id])
+
+  evidences Evidence[]
+
+  createdAt DateTime @default(now())
+
+  @@index([projectId])
+}
+
+model Evidence {
+  id           String   @id @default(cuid())
+  findingId    String
+  finding      Finding  @relation(fields: [findingId], references: [id], onDelete: Cascade)
+  filename     String
+  contentType  String
+  size         Int
+  url          String
+  uploadedById String?
+  uploadedBy   User?    @relation("EvidenceUploadedBy", fields: [uploadedById], references: [id])
+  createdAt    DateTime @default(now())
+
+  @@index([findingId])
+}
+
+model ProjectDoc {
+  id           String   @id @default(cuid())
+
+  projectId    String
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  filename     String
+  originalName String
+  mime         String
+  size         Int
+  url          String
+
+  uploadedById String?
+  uploadedBy   User?    @relation("ProjectDocUploadedBy", fields: [uploadedById], references: [id])
+
+  createdAt    DateTime @default(now())
+
+  @@index([projectId])
+}
+
+//// ⬇️ BARU: Session token untuk auth yang aman
+model Session {
+  token     String   @id            // random UUID / token
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+
+  @@index([userId])
+  @@index([expiresAt])
+}
