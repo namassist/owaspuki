@@ -22,7 +22,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # Set database URL for build time (dummy URL since we don't need real DB during build)
-ENV DATABASE_URL="postgresql://postgres:postgres@localhost:5432/owasp?schema=public"
+ENV DATABASE_URL="postgresql://postgres:postgres@db:5432/owasp?schema=public"
 
 RUN npx prisma generate
 RUN npm run build
@@ -41,5 +41,6 @@ COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/next.config.* ./
 COPY --from=builder /app/prisma ./prisma
+RUN npx prisma generate
 EXPOSE 3000
 CMD ["npm","run","start"]
